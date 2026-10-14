@@ -27,7 +27,6 @@ use illumos_utils::opte::{
 };
 use illumos_utils::running_zone::{RunningZone, ZoneBuilderFactory};
 use illumos_utils::zone::PROPOLIS_ZONE_PREFIX;
-use illumos_utils::zpool::ZpoolOrRamdisk;
 use omicron_common::api::internal::shared::{DelegatedZvol, SledIdentifiers};
 use omicron_common::backoff;
 use omicron_common::backoff::BackoffError;
@@ -212,12 +211,8 @@ struct RunningState {
     client: Arc<PropolisClient>,
     // Handle to the zone.
     running_zone: RunningZone,
-}
-
-// Named type for values returned during propolis zone creation
-struct PropolisSetup {
-    client: Arc<PropolisClient>,
-    running_zone: RunningZone,
+    // Zpool chosen for the zone's filesystem.
+    filesystem_zpool: ZpoolName,
 }
 
 // Requests that can be made of instances
@@ -666,7 +661,7 @@ struct InstanceRunner {
 
     // Broadcasts the Propolis zone's root filesystem zpool once the zone has
     // started.
-    root_fs_zpool: Arc<SetOnce<Option<ZpoolName>>>,
+    root_fs_zpool: Arc<SetOnce<ZpoolName>>,
 }
 
 impl InstanceRunner {
@@ -1343,10 +1338,7 @@ impl InstanceRunner {
     /// # Panics
     ///
     /// Panics if this routine is called more than once for a given Instance.
-    fn install_running_state(
-        &mut self,
-        PropolisSetup { client, running_zone }: PropolisSetup,
-    ) {
+    fn install_running_state(&mut self, running_state: RunningState) {
         // Monitor propolis for state changes in the background.
         //
         // This task exits after its associated Propolis has been terminated
@@ -1354,8 +1346,8 @@ impl InstanceRunner {
         // it exited or because the Propolis server was terminated by other
         // means).
         let runner = InstanceMonitorRunner {
-            zone_name: running_zone.name().to_string(),
-            client: client.clone(),
+            zone_name: running_state.running_zone.name().to_string(),
+            client: running_state.client.clone(),
             tx_monitor: self.tx_monitor.clone(),
             zones_api: self.zone_builder_factory.zones_api().clone(),
             log: self.log.clone(),
@@ -1381,17 +1373,13 @@ impl InstanceRunner {
         // state into `self.running_state`, we cannot actually be interrupted
         // between now and then, since this is not an `async fn` and it contains
         // no await points.
-        let root_zpool = match running_zone.root_zpool() {
-            ZpoolOrRamdisk::Ramdisk => None,
-            ZpoolOrRamdisk::Zpool(zpool) => Some(*zpool),
-        };
-        if let Err(e) = self.root_fs_zpool.set(root_zpool) {
+        if let Err(e) = self.root_fs_zpool.set(running_state.filesystem_zpool) {
             panic!(
                 "install_running_state called twice for one instance: \
                  root_fs_zpool was already set: {e:?}"
             );
         }
-        self.running_state = Some(RunningState { client, running_zone });
+        self.running_state = Some(running_state);
     }
 
     /// Immediately terminates this instance's Propolis zone and cleans up any
@@ -1894,7 +1882,7 @@ pub struct Instance {
 
     /// The channel over which the VMM's root filesystem zpool is sent once the
     /// zone has started.
-    root_fs_zpool: Arc<SetOnce<Option<ZpoolName>>>,
+    root_fs_zpool: Arc<SetOnce<ZpoolName>>,
 
     /// This is reference-counted so that the `Instance` struct may be cloned.
     #[allow(dead_code)]
@@ -2061,11 +2049,8 @@ impl Instance {
 
     /// Borrow the name of the Propolis zone's root filesystem zpool, or wait
     /// until a zone has been started, if one does not currently exist.
-    ///
-    /// This returns `None` if the zone is running but its root filesystem is on
-    /// the ramdisk rather than a zpool.
-    pub async fn wait_for_filesystem_zpool(&self) -> Option<&ZpoolName> {
-        self.root_fs_zpool.wait().await.as_ref()
+    pub async fn wait_for_filesystem_zpool(&self) -> &ZpoolName {
+        self.root_fs_zpool.wait().await
     }
 
     pub fn current_state(
@@ -2427,7 +2412,7 @@ impl InstanceRunner {
 
     /// Sets up the Propolis zone that will host this instance's virtual
     /// machine.
-    async fn setup_propolis_zone(&mut self) -> Result<PropolisSetup, Error> {
+    async fn setup_propolis_zone(&mut self) -> Result<RunningState, Error> {
         // Create OPTE ports for the instance. We also store the names of all
         // those ports to notify the metrics task to start collecting statistics
         // for them.
@@ -2480,6 +2465,7 @@ impl InstanceRunner {
             .into_iter()
             .choose(&mut rng)
             .ok_or_else(|| Error::U2NotFound)?;
+        let filesystem_zpool = root.pool;
 
         let installed_zone = self
             .zone_builder_factory
@@ -2574,7 +2560,7 @@ impl InstanceRunner {
         wait_for_http_server(&self.log, &client).await?;
         info!(self.log, "Propolis HTTP server online");
 
-        Ok(PropolisSetup { client, running_zone })
+        Ok(RunningState { client, running_zone, filesystem_zpool })
     }
 
     /// Forcibly moves this VMM to the Failed state, then goes through the

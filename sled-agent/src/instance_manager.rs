@@ -1101,13 +1101,9 @@ impl InstanceManagerRunner {
             let instance = instance.clone();
             tokio::spawn(async move {
                 // Wait for the propolis zone to start, and consider its root
-                // filesystem zpool, unless the zone is on the ramdisk.
-                let Some(filesystem_pool) =
-                    instance.wait_for_filesystem_zpool().await
-                else {
-                    // Zone is not on the ramdisk, so skip it.
-                    return;
-                };
+                // filesystem zpool.
+                let filesystem_pool =
+                    instance.wait_for_filesystem_zpool().await;
                 if !current_zpools.contains(filesystem_pool) {
                     info!(
                         log,
