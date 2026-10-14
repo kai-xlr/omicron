@@ -3196,10 +3196,11 @@ mod tests {
         ) -> Self {
             let nexus = FakeNexusParts::new(&log).await;
             let temp_guard = Utf8TempDir::new().unwrap();
+            let fake_zpool = ZpoolName::External(ExternalZpoolUuid::new_v4());
             let (services, metrics_rx) = fake_instance_manager_services(
                 log,
                 AvailableDatasetsReceiver::fake_in_tempdir_for_tests(
-                    ZpoolName::External(ExternalZpoolUuid::new_v4()),
+                    fake_zpool,
                 ),
                 nexus.nexus_client.clone(),
                 temp_guard.path().as_str(),
@@ -3225,7 +3226,7 @@ mod tests {
                     vnic_allocator,
                     port_manager,
                     CurrentlyManagedZpoolsReceiver::fake_static(
-                        std::iter::empty(),
+                        std::iter::once(fake_zpool),
                     ),
                     available_datasets_rx,
                     zone_bundler,
