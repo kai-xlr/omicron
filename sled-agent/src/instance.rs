@@ -2486,7 +2486,7 @@ impl InstanceRunner {
             .builder()
             .with_log(self.log.clone())
             .with_underlay_vnic_allocator(&self.vnic_allocator)
-            .with_zone_root_path(root)
+            .with_zone_root_path(root.into())
             .with_file_source(&ramdisk_file_source("propolis-server"))
             .with_zone_type("propolis-server")
             .with_unique_name(OmicronZoneUuid::from_untyped_uuid(
@@ -2816,7 +2816,7 @@ mod tests {
     use omicron_generation_kinds::Generation;
 
     use omicron_test_utils::dev::poll::{CondCheckError, wait_for_condition};
-    use omicron_uuid_kinds::InternalZpoolUuid;
+    use omicron_uuid_kinds::{ExternalZpoolUuid, InternalZpoolUuid};
     use propolis_client::ClientInfo;
     use propolis_client::types::{
         InstanceMigrateStatusResponse, InstanceStateMonitorResponse,
@@ -3213,7 +3213,7 @@ mod tests {
             let (services, metrics_rx) = fake_instance_manager_services(
                 log,
                 AvailableDatasetsReceiver::fake_in_tempdir_for_tests(
-                    ZpoolOrRamdisk::Ramdisk,
+                    ZpoolName::External(ExternalZpoolUuid::new_v4()),
                 ),
                 nexus.nexus_client.clone(),
                 temp_guard.path().as_str(),
@@ -3285,7 +3285,7 @@ mod tests {
                 propolis_addr,
                 nexus_client,
                 AvailableDatasetsReceiver::fake_in_tempdir_for_tests(
-                    ZpoolOrRamdisk::Ramdisk,
+                    ZpoolName::External(ExternalZpoolUuid::new_v4()),
                 ),
                 temp_guard.path().as_str(),
             ),
@@ -3392,7 +3392,7 @@ mod tests {
                     )),
                     nexus_client,
                     AvailableDatasetsReceiver::fake_in_tempdir_for_tests(
-                        ZpoolOrRamdisk::Ramdisk,
+                        ZpoolName::External(ExternalZpoolUuid::new_v4()),
                     ),
                     temp_guard.path().as_str(),
                 ),
@@ -4102,7 +4102,7 @@ mod tests {
             let (services, _metrics_rx) = fake_instance_manager_services(
                 &log,
                 AvailableDatasetsReceiver::fake_in_tempdir_for_tests(
-                    ZpoolOrRamdisk::Ramdisk,
+                    ZpoolName::External(ExternalZpoolUuid::new_v4()),
                 ),
                 nexus_client,
                 temp_guard.path().as_str(),
