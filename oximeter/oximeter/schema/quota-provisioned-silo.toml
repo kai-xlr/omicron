@@ -1,0 +1,44 @@
+format_version = 1
+
+[target]
+name = "quota_provisioned_silo"
+description = "Provisioned resources charged against silo quotas, emitted by each Nexus; take the mean across nexus_id for each silo to deduplicate."
+authz_scope = "fleet"
+versions = [
+    { version = 1, fields = [ "nexus_id", "silo_id" ] },
+]
+
+[fields.nexus_id]
+type = "uuid"
+description = "ID of the Nexus reporting the sample"
+
+[fields.silo_id]
+type = "uuid"
+description = "ID of the silo"
+
+[[metrics]]
+name = "memory"
+description = "Provisioned memory charged against the silo quota, in bytes"
+units = "bytes"
+datum_type = "u64"
+versions = [
+    { added_in = 1, fields = [] }
+]
+
+[[metrics]]
+name = "cpu"
+description = "Provisioned vCPUs charged against the silo quota"
+units = "count"
+datum_type = "u64"
+versions = [
+    { added_in = 1, fields = [] }
+]
+
+[[metrics]]
+name = "disk"
+description = "Provisioned disk and snapshot storage charged against the silo quota, in bytes"
+units = "bytes"
+datum_type = "u64"
+versions = [
+    { added_in = 1, fields = [] }
+]

@@ -1,0 +1,44 @@
+format_version = 1
+
+[target]
+name = "quota_capacity_silo"
+description = "Silo quota capacity, emitted by each Nexus; take the mean across nexus_id for each silo to deduplicate."
+authz_scope = "fleet"
+versions = [
+    { version = 1, fields = [ "nexus_id", "silo_id" ] },
+]
+
+[fields.nexus_id]
+type = "uuid"
+description = "ID of the Nexus reporting the sample"
+
+[fields.silo_id]
+type = "uuid"
+description = "ID of the silo"
+
+[[metrics]]
+name = "memory"
+description = "Silo quota limit for provisioned memory, in bytes"
+units = "bytes"
+datum_type = "u64"
+versions = [
+    { added_in = 1, fields = [] }
+]
+
+[[metrics]]
+name = "cpu"
+description = "Silo quota limit for provisioned vCPUs"
+units = "count"
+datum_type = "u64"
+versions = [
+    { added_in = 1, fields = [] }
+]
+
+[[metrics]]
+name = "disk"
+description = "Silo quota limit for provisioned disk and snapshot storage, in bytes"
+units = "bytes"
+datum_type = "u64"
+versions = [
+    { added_in = 1, fields = [] }
+]
